@@ -11,18 +11,21 @@ library(janitor)
 library(readxl)
 
 ### Load data 
-data_location <- "D:/AEMC Consultation/Data"
+data_location <- "D:/AEMC Consultation/Data/Raw"
 
 LPA <- fread(paste0(data_location, "/dispatch_local_price_24-01-2020.csv")) %>% clean_names() %>% 
-    mutate(settlementdate = ymd_hms(settlementdate))
+    mutate(settlementdate = ymd_hms(settlementdate)) 
 
 Price <- fread(paste0(data_location, "/dispatchprice_24-01-2020.csv")) %>% clean_names() %>% 
-    filter(intervention == 0) %>%
+    filter(intervention == 0) %>% 
     mutate(region = substr(regionid, 1, nchar(regionid)-1))%>% 
-    mutate(settlementdate = ymd_hms(settlementdate))
+    mutate(settlementdate = ymd_hms(settlementdate))%>% 
+    select(-regionid) %>% 
+    group_by(interval = cut(settlementdate, breaks = "30 min"), region) %>% #add RRP30 
+    mutate(rrp30 = mean(rrp)) 
 
 Zones <- read_excel(paste0(data_location, "/Zonal mapping with DUID.xlsx")) %>% 
-    .[!duplicated(.$duid),]#only keep one of each duid
+    .[!duplicated(.$duid),]#only keep one of each duid 
 
 
 
@@ -65,24 +68,64 @@ NEMSIGHT_Details <- fread("D:/AEMC Consultation/Data/NEMSIGHT_Details.csv") %>%
                               REGIONID == "Victoria" ~ "VIC",
                               REGIONID == "South Australia" ~ "SA",
                               REGIONID == "Tasmania" ~ "TAS")) %>% 
-    clean_names()
+    clean_names() %>% 
+    select(-regionid) 
 
 
 ### Merge
 
-Merged_1 <- LPA %>% merge(NEMSIGHT_Details, by = "duid")
+clean_data_location <- "D:/AEMC Consultation/Data/Cleaned/Monthly"
 
-Merged_2 <- Merged_1 %>% merge(Price, by = c("settlementdate", "region"))
+Merged_1 <- LPA %>% inner_join(NEMSIGHT_Details, by = "duid") #add gen details
 
+Merged_2 <- Merged_1 %>% inner_join(Price, by = c("settlementdate", "region")) #add price data
+
+#Add dispatch quantity (seperate monthly files)
 Dispatch_files <- paste0(data_location, "/output/", list.files(paste0(data_location, "/output"))) %>% 
     .[!str_detect(.,pattern="dispatchload_partial_2020-01.csv")] %>% #remove 2020 csv
-    .[126]
+    .[103:114] #only 2018
+
 
 for (file_name in Dispatch_files){
-    Merged_2 %>% merge(fread(file_name), by = c("settlementdate", "duid"))
+    temp <- Merged_2 %>% inner_join(fread(file_name) %>% mutate(settlementdate = ymd_hms(settlementdate)), 
+                            by = c("settlementdate", "duid"))
+    fwrite(temp, paste0(clean_data_location, "/", substr(file_name, 38, nchar(file_name)-4), "-CLEAN.csv"))
 }
 
-%>% #only first 2 files used for now
-    map(~ fread(.x)) %>% 
+
+# merge months together
+Merged_3 <- paste0(clean_data_location, "/", list.files(clean_data_location)) %>% 
+    map(~ fread(.x, stringsAsFactors = FALSE)) %>% 
     rbindlist() %>% 
-    mutate(settlementdate = ymd_hms(settlementdate))
+    mutate(settlementdate = ymd_hms(settlementdate)) 
+
+#add revenue calculations
+Merged_4 <- Merged_3 %>% 
+    mutate(dispatchmwh = totalcleared/12) %>% #convert MW to MWh 
+    mutate(rev_rrp_30 = rrp30*dispatchmwh) %>% 
+    mutate(rev_lmp = local_price_adjustment*dispatchmwh) %>% 
+    mutate(rev_lmp0 = pmax(local_price_adjustment, 0)*dispatchmwh) 
+
+
+### 2018 TABLE
+
+summ_all_2 <- function(df){
+    df %>% 
+        summarise(quantity = ifelse(sum(dispatchmwh)>0,
+                                    sum(dispatchmwh),
+                                    NA),
+                  
+                  total_mispricing = sum(abs(rev_rrp_30 - rev_lmp)),
+                  adj_total_mispricing = sum(abs(rev_rrp_30 - rev_lmp0)),
+                  total_overcomp = sum(rev_rrp_30 - rev_lmp),
+                  adj_total_overcomp = sum(rev_rrp_30 - rev_lmp0),
+                  
+                  ave_mispricing = total_mispricing / quantity,
+                  adj_ave_mispricing = adj_total_mispricing / quantity,
+                  ave_overcomp = total_overcomp / quantity,
+                  adj_ave_overcomp = adj_total_overcomp / quantity
+        )
+}
+
+table_2018 <- Merged_4 %>% 
+    group_by(fuel_type) %>% summ_all_2()
