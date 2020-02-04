@@ -22,7 +22,9 @@ Price <- fread(paste0(data_location, "/dispatchprice_24-01-2020.csv")) %>% clean
     mutate(settlementdate = ymd_hms(settlementdate))%>% 
     select(-regionid) %>% 
     group_by(interval = cut(settlementdate, breaks = "30 min"), region) %>% #add RRP30 
-    mutate(rrp30 = mean(rrp)) 
+    mutate(rrp30 = mean(rrp)) %>% 
+    as.data.frame() %>% 
+    filter(intervention == 0)#remove all intervention prices, they dont actually change anything
 
 Zones <- read_excel(paste0(data_location, "/Zonal mapping with DUID.xlsx")) %>% 
     .[!duplicated(.$duid),]#only keep one of each duid 
@@ -87,7 +89,8 @@ Dispatch_files <- paste0(data_location, "/output/", list.files(paste0(data_locat
 
 
 for (file_name in Dispatch_files){
-    temp <- Merged_2 %>% inner_join(fread(file_name) %>% mutate(settlementdate = ymd_hms(settlementdate)), 
+    temp <- Merged_2 %>% inner_join(fread(file_name) %>% mutate(settlementdate = ymd_hms(settlementdate)) %>% 
+                                        filter(intervention == 0),#remove int==1 
                             by = c("settlementdate", "duid"))
     fwrite(temp, paste0(clean_data_location, "/", substr(file_name, 38, nchar(file_name)-4), "-CLEAN.csv"))
 }
@@ -103,8 +106,9 @@ Merged_3 <- paste0(clean_data_location, "/", list.files(clean_data_location)) %>
 Merged_4 <- Merged_3 %>% 
     mutate(dispatchmwh = totalcleared/12) %>% #convert MW to MWh 
     mutate(rev_rrp_30 = rrp30*dispatchmwh) %>% 
-    mutate(rev_lmp = local_price_adjustment*dispatchmwh) %>% 
-    mutate(rev_lmp0 = pmax(local_price_adjustment, 0)*dispatchmwh) 
+    mutate(lmp = rrp + local_price_adjustment) %>% 
+    mutate(rev_lmp = lmp*dispatchmwh) %>% 
+    mutate(rev_lmp0 = pmax(lmp, 0)*dispatchmwh) 
 
 
 ### 2018 TABLE
@@ -114,7 +118,7 @@ summ_all_2 <- function(df){
         summarise(quantity = ifelse(sum(dispatchmwh)>0,
                                     sum(dispatchmwh),
                                     NA),
-                  
+        
                   total_mispricing = sum(abs(rev_rrp_30 - rev_lmp)),
                   adj_total_mispricing = sum(abs(rev_rrp_30 - rev_lmp0)),
                   total_overcomp = sum(rev_rrp_30 - rev_lmp),
@@ -127,5 +131,15 @@ summ_all_2 <- function(df){
         )
 }
 
-table_2018 <- Merged_4 %>% 
+table_2018 <- Merged_4 %>% filter(type == "Gen") %>% 
     group_by(fuel_type) %>% summ_all_2()
+
+
+#
+
+temp <- fread("D:/AEMC Consultation/Data/Raw/output/dispatchload_2018-01.csv") %>% 
+    mutate(settlementdate = ymd_hms(settlementdate))
+
+tail(temp %>% filter(intervention ==1))
+
+temp %>% filter(settlementdate == ymd_hms("2018-01-12 20:35:00 UTC"), duid == "YWPS4")
