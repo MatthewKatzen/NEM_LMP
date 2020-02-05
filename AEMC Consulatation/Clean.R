@@ -17,14 +17,13 @@ LPA <- fread(paste0(data_location, "/dispatch_local_price_24-01-2020.csv")) %>% 
     mutate(settlementdate = ymd_hms(settlementdate)) 
 
 Price <- fread(paste0(data_location, "/dispatchprice_24-01-2020.csv")) %>% clean_names() %>% 
-    filter(intervention == 0) %>% 
+    filter(intervention == 0) %>% #remove all intervention prices, they dont actually change anything
     mutate(region = substr(regionid, 1, nchar(regionid)-1))%>% 
     mutate(settlementdate = ymd_hms(settlementdate))%>% 
     select(-regionid) %>% 
     group_by(interval = cut(settlementdate, breaks = "30 min"), region) %>% #add RRP30 
     mutate(rrp30 = mean(rrp)) %>% 
-    as.data.frame() %>% 
-    filter(intervention == 0)#remove all intervention prices, they dont actually change anything
+    as.data.frame()
 
 Zones <- read_excel(paste0(data_location, "/Zonal mapping with DUID.xlsx")) %>% 
     .[!duplicated(.$duid),]#only keep one of each duid 
@@ -48,20 +47,9 @@ rm(temp, temp2)
 
 
 ### Fix Zones Dataset
-        #seems like some duid have multiple generator names, lets just remove duplicated duid for now and only keep one
-        #row of each
+        #seems like some duid have multiple generator names, lets just use NEMSIGHT for now
 
-
-#why is merged smaller than LPA?
-(LPA$duid %>% unique())[(!((LPA$duid %>% unique()) %in% Zones$duid)) %>% which()]#missing duids in Zones
-Zones$duid %>% sort()
-        #b/c they have been decommissioned. Just use NEMSIGHT_Details dataset from NEMSIGHT
-
-
-
-#Use NEMSIGHT data instead of AEMC
-
-NEMSIGHT_Details <- fread("D:/AEMC Consultation/Data/NEMSIGHT_Details.csv") %>% 
+NEMSIGHT_Details <- fread("D:/AEMC Consultation/Data/RAW/NEMSIGHT_Details.csv") %>% 
     select(-c("ConnectionPtId", "Thermal Efficiency", "Auxiliaries", "Emission Intensity Sent-Out", 
               "Capacity")) %>% 
     rename(REGIONID = Region) %>% 
@@ -103,26 +91,31 @@ Merged_3 <- paste0(clean_data_location, "/", list.files(clean_data_location)) %>
     mutate(settlementdate = ymd_hms(settlementdate)) 
 
 #add revenue calculations
-Merged_4 <- Merged_3 %>% 
-    mutate(dispatchmwh = totalcleared/12) %>% #convert MW to MWh 
-    mutate(rev_rrp_30 = rrp30*dispatchmwh) %>% 
-    mutate(lmp = rrp + local_price_adjustment) %>% 
-    mutate(rev_lmp = lmp*dispatchmwh) %>% 
-    mutate(rev_lmp0 = pmax(lmp, 0)*dispatchmwh) 
+Merged_4 <- Merged_3 %>% select(settlementdate, duid, local_price_adjustment, type, station, fuel_type, region, rrp, 
+                                rrp30, totalcleared) %>% 
+    mutate(dispatchmwh = totalcleared/12, #convert MW to MWh 
+           lmp = rrp + local_price_adjustment,
+           lmp_censored = ifelse(lmp < -1000, -1000, lmp),
+           lmp_censored = ifelse(((lmp > 14200) & (lmp < 14500)), 14200, lmp_censored),
+           lmp_censored = ifelse(lmp > 14500, 14500, lmp_censored)) %>% 
+    mutate(rev_lmp_censored = lmp_censored*dispatchmwh,
+           rev_rrp_30 = rrp30*dispatchmwh, 
+           rev_lmp0 = pmax(lmp_censored, 0)*dispatchmwh) %>%
+    filter(type == "Gen") #only keep gens (remove loads)
 
 
 ### 2018 TABLE
 
-summ_all_2 <- function(df){
+summ_all_3 <- function(df){
     df %>% 
         summarise(quantity = ifelse(sum(dispatchmwh)>0,
                                     sum(dispatchmwh),
                                     NA),
         
-                  total_mispricing = sum(abs(rev_rrp_30 - rev_lmp)),
-                  adj_total_mispricing = sum(abs(rev_rrp_30 - rev_lmp0)),
-                  total_overcomp = sum(rev_rrp_30 - rev_lmp),
-                  adj_total_overcomp = sum(rev_rrp_30 - rev_lmp0),
+                  total_mispricing = sum(abs(rev_rrp_30 - rev_lmp_censored))/1000000,
+                  adj_total_mispricing = sum(abs(rev_rrp_30 - rev_lmp0))/1000000,
+                  total_overcomp = sum(rev_rrp_30 - rev_lmp_censored)/1000000,
+                  adj_total_overcomp = sum(rev_rrp_30 - rev_lmp0)/1000000,
                   
                   ave_mispricing = total_mispricing / quantity,
                   adj_ave_mispricing = adj_total_mispricing / quantity,
@@ -131,15 +124,6 @@ summ_all_2 <- function(df){
         )
 }
 
-table_2018 <- Merged_4 %>% filter(type == "Gen") %>% 
-    group_by(fuel_type) %>% summ_all_2()
+table_2018 <- Merged_4 %>% 
+    group_by(fuel_type) %>% summ_all_3()
 
-
-#
-
-temp <- fread("D:/AEMC Consultation/Data/Raw/output/dispatchload_2018-01.csv") %>% 
-    mutate(settlementdate = ymd_hms(settlementdate))
-
-tail(temp %>% filter(intervention ==1))
-
-temp %>% filter(settlementdate == ymd_hms("2018-01-12 20:35:00 UTC"), duid == "YWPS4")
