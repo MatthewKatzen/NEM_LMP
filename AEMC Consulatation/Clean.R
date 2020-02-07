@@ -44,7 +44,7 @@ NEMSIGHT_Details <- fread("D:/AEMC Consultation/Data/RAW/NEMSIGHT_Details.csv") 
 
 
 ################
-###Merge
+### Mispricing
 
 clean_data_location <- "D:/AEMC Consultation/Data/Cleaned/Monthly"
 
@@ -71,10 +71,23 @@ Merged_3 <- paste0(clean_data_location, "/", list.files(clean_data_location)) %>
     rbindlist() %>% 
     mutate(settlementdate = ymd_hms(settlementdate)) 
 
-#add censored and revenue calculations
+pumped_hydro_stations <- NEMSIGHT_Details %>% filter(type == "Load" & fuel_type == "Hydro") %>% select(station) %>% 
+    unique() %>% .[['station']]
 
+#add charging censored and revenue calculations
 Merged_4 <- Merged_3 %>% select(settlementdate, duid, local_price_adjustment, type, station, participant, fuel_type,
                                 region, rrp, rrp30, totalcleared) %>% 
+    mutate(fuel_type = case_when(((station %in% pumped_hydro_stations) & type == "Load") ~ 
+                                     "Pumped Hydro (Charge)", #deal with loads
+                                 ((station %in% pumped_hydro_stations) & type == "Gen") ~ 
+                                     "Pumped Hydro (Discharge)",
+                                 (!(station %in% pumped_hydro_stations) & type == "Gen" & fuel_type == "Hydro") ~ 
+                                     "Hydro (Discharge)",
+                                 (fuel_type == "Battery" & type == "Load") ~ "Battery (Charge)",
+                                 (fuel_type == "Battery" & type == "Gen") ~ "Battery (Discharge)",
+                                 TRUE ~ fuel_type),
+           totalcleared = case_when(type == "Load" ~ (-totalcleared),
+                                    type == "Gen" ~ totalcleared)) %>% 
     mutate(dispatchmwh = totalcleared/12, #convert MW to MWh 
            lmp = rrp + local_price_adjustment, #lmp calculation
            lmp_censored = case_when((lmp < -1000) ~ (-1000), #censoring
@@ -82,7 +95,67 @@ Merged_4 <- Merged_3 %>% select(settlementdate, duid, local_price_adjustment, ty
                                     TRUE ~ lmp)) %>% 
     mutate(rev_lmp_censored = lmp_censored*dispatchmwh,
            rev_rrp_30 = rrp30*dispatchmwh, 
-           rev_lmp0 = pmax(lmp_censored, 0)*dispatchmwh) %>%
-    filter(type == "Gen") #only keep gens (remove loads)
+           rev_lmp0 = pmax(lmp_censored, 0)*dispatchmwh)
 
 fwrite(Merged_4, "D:/AEMC Consultation/Data/Cleaned/Full Data - CLEAN.csv")
+
+#############
+# Total dispatch and rev
+
+Dispatch_files <- paste0(data_location, "/output/", list.files(paste0(data_location, "/output"))) %>% 
+    .[43:126] #only 2013 - 2019
+
+clean_dispatch_location <- "D:/AEMC Consultation/Data/Cleaned/Dispatch Monthly"
+
+for (file_name in Dispatch_files){
+    fread(file_name) %>% filter(totalcleared > 0) %>% 
+        mutate(settlementdate = ymd_hms(settlementdate)) %>% 
+        inner_join(NEMSIGHT_Details, by = "duid") %>% 
+        inner_join(Price, by = c("settlementdate", "region")) %>% 
+        fwrite(paste0(clean_dispatch_location, "/", substr(file_name, 38, nchar(file_name)-4), " - Dispatch CLEAN.csv"))
+}
+
+pumped_hydro_stations <- NEMSIGHT_Details %>% filter(type == "Load" & fuel_type == "Hydro") %>% select(station) %>% 
+    unique() %>% .[['station']]
+
+Dispatch_Cleaned_files <- paste0(clean_dispatch_location, "/", list.files(clean_dispatch_location))
+
+clean_dispatch_table_location <- "D:/AEMC Consultation/Data/Cleaned/Dispatch Monthly Tables"
+
+# get summary for each month
+for (file_name in Dispatch_Cleaned_files){
+    file_name %>% 
+        fread() %>% 
+        mutate(settlementdate = ymd_hms(settlementdate)) %>% 
+        select(settlementdate, duid, type, station, participant, fuel_type,
+               region, rrp, rrp30, totalcleared) %>% 
+        mutate(fuel_type = case_when(((station %in% pumped_hydro_stations) & type == "Load") ~ 
+                                         "Pumped Hydro (Charge)", #deal with loads
+                                     ((station %in% pumped_hydro_stations) & type == "Gen") ~ 
+                                         "Pumped Hydro (Discharge)",
+                                     (!(station %in% pumped_hydro_stations) & type == "Gen" & fuel_type == "Hydro") ~ 
+                                         "Hydro (Discharge)",
+                                     (fuel_type == "Battery" & type == "Load") ~ "Battery (Charge)",
+                                     (fuel_type == "Battery" & type == "Gen") ~ "Battery (Discharge)",
+                                     TRUE ~ fuel_type),
+               totalcleared = case_when(type == "Load" ~ (-totalcleared),
+                                        type == "Gen" ~ totalcleared)) %>% 
+        mutate(dispatchmwh = totalcleared/12,  #convert MW to MWh 
+               month = ymd(paste0(substr(file_name, 65,71),"-01"))) %>% #add month variable
+        group_by(month, duid, station, participant, type, fuel_type, region) %>% 
+        summarise(total_quantity = sum(dispatchmwh),
+                  total_revenue_rrp30 = sum(dispatchmwh * rrp30)) %>% 
+        fwrite(paste0(clean_dispatch_table_location, "/", 
+                      substr(file_name, 52, nchar(file_name)-21), 
+                      " - Dispatch Table.csv"))
+}
+
+
+Dispatch_Table_files <- paste0(clean_dispatch_table_location, "/", list.files(clean_dispatch_table_location))
+
+Yearly_Tables <- Dispatch_Table_files %>% 
+    map(~ fread(.x)) %>% 
+    rbindlist() %>% mutate(month = ymd(month)) %>% 
+    group_by()
+
+
