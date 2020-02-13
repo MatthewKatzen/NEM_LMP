@@ -15,6 +15,8 @@ library(writexl)
 Full_Data <- fread("D:/AEMC Consultation/Data/Cleaned/Full Data - CLEAN.csv") %>% 
     mutate(settlementdate = ymd_hms(settlementdate)) 
 
+Dispatch_Table_files <- paste0("D:/AEMC Consultation/Data/Cleaned/Dispatch Monthly Tables/",
+                               list.files("D:/AEMC Consultation/Data/Cleaned/Dispatch Monthly Tables"))
 
 ### Create Summary function
 # input: grouped data frame

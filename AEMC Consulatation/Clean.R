@@ -54,12 +54,13 @@ Merged_2 <- Merged_1 %>% inner_join(Price, by = c("settlementdate", "region")) #
 
 #Add dispatch quantity (seperate monthly files)
 
-Dispatch_files <- paste0(data_location, "/output/", list.files(paste0(data_location, "/output"))) %>% 
-    .[43:126] #only 2013 - 2019
+Dispatch_files <- paste0(data_location, "/output/", list.files(paste0(data_location, "/output")))
 
 for (file_name in Dispatch_files){
     Merged_2 %>% inner_join(fread(file_name) %>% mutate(settlementdate = ymd_hms(settlementdate)) %>% 
-                                filter(intervention == 0),#remove int==1 
+                                group_by(settlementdate, duid) %>% 
+                                filter(intervention == max(intervention),#if intervention, keep it and remove int==0
+                                       totalcleared > 0),#remove no dispatch
                             by = c("settlementdate", "duid")) %>% 
         fwrite(paste0(clean_data_location, "/", substr(file_name, 38, nchar(file_name)-4), "-CLEAN.csv"))
 }
@@ -103,12 +104,15 @@ fwrite(Merged_4, "D:/AEMC Consultation/Data/Cleaned/Full Data - CLEAN.csv")
 # Total dispatch and rev
 
 Dispatch_files <- paste0(data_location, "/output/", list.files(paste0(data_location, "/output"))) %>% 
-    .[43:126] #only 2013 - 2019
+    .[103:126] #only 2013 - 2019
 
 clean_dispatch_location <- "D:/AEMC Consultation/Data/Cleaned/Dispatch Monthly"
 
 for (file_name in Dispatch_files){
-    fread(file_name) %>% filter(totalcleared > 0) %>% 
+    fread(file_name) %>% group_by(settlementdate, duid) %>% 
+        filter(intervention == max(intervention),#if intervention, keep it and remove int==0
+                                totalcleared > 0) %>% #remove no dispatch
+        ungroup() %>% 
         mutate(settlementdate = ymd_hms(settlementdate)) %>% 
         inner_join(NEMSIGHT_Details, by = "duid") %>% 
         inner_join(Price, by = c("settlementdate", "region")) %>% 
@@ -151,11 +155,5 @@ for (file_name in Dispatch_Cleaned_files){
 }
 
 
-Dispatch_Table_files <- paste0(clean_dispatch_table_location, "/", list.files(clean_dispatch_table_location))
-
-Yearly_Tables <- Dispatch_Table_files %>% 
-    map(~ fread(.x)) %>% 
-    rbindlist() %>% mutate(month = ymd(month)) %>% 
-    group_by()
 
 
