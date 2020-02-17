@@ -31,7 +31,7 @@ summary_table_2 <- function(df){
                   PercTM = TM/RevRRP*100,
                   PercTMbar = TMbar/RevRRP*100,
                   PercTO = TO/RevRRP*100,
-                  PercTObar = TO/RevRRP*100
+                  PercTObar = TObar/RevRRP*100
                   
         )
 }
