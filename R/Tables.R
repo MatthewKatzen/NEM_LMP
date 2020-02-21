@@ -13,7 +13,7 @@ library(writexl)
 Sys.setenv(TZ='UTC')
 
 ### Load data
-data_full <- fread("D:/AEMC Consultation/Output/full.csv")
+data_full <- fread("D:/AEMC Consultation/Output/NonMCfull.csv")
 
 # summary_table_4
 #input: df (data frame) that is grouped at level of interest (e.g. fuel_type, region) and has already been run through        summary_table_3 at yearly level
