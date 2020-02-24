@@ -51,18 +51,21 @@ black_coal_price <- fread("D:/Thesis/Data/External/black_coal_price.csv") %>%
                            "Callide",
                            station)) %>% 
     unique() %>% 
-    inner_join(black_coal_gens, by = "station") 
+    right_join(black_coal_gens, by = "station") %>% 
+    mutate(black_coal_price = ifelse(is.na(black_coal_price), 
+                                     mean(black_coal_price, na.rm=TRUE), 
+                                     black_coal_price)) #if missing from esoo (i.e. decommissioned) then make it mean of others
 
 
 black_coal_mc <- black_coal_price %>% .[rep(1:nrow(.), each=nrow(coal_index)),] %>% 
     mutate(month = coal_index[rep(1:nrow(coal_index),
-                                  39),#nrow(black_coal_price), not working in code for some reason
+                                  53),#nrow(black_coal_price), not working in code for some reason
                               "month"],
            base = coal_index[rep(1:nrow(coal_index),
-                                 39),#nrow(black_coal_price)
+                                 53),#nrow(black_coal_price)
                              "base"]) %>% 
     mutate(black_coal_price_adjusted = black_coal_price * base) %>% 
-    mutate(mc =  black_coal_price_adjusted * 3.6 * (1/thermal_efficiency)) 
+    mutate(mc =  black_coal_price_adjusted * 3.6 * (1/thermal_efficiency))
 
 
 
@@ -130,7 +133,7 @@ brown_coal_mc <- brown_coal_gens %>% .[rep(1:nrow(.), each=nrow(brown_coal_data)
                                   "brown_coal_price"]) %>% 
     mutate(mc =  brown_coal_price * 3.6 * (1/thermal_efficiency)) 
 
-brown_coal_mc_2 <- brown_coal_mc %>% .[rep((1:nrow(brown_coal_mc)), each = 3),] %>% 
+brown_coal_mc_2 <- brown_coal_mc %>% .[rep((1:nrow(brown_coal_mc)), each = 3),] %>% #convert quarterly to monthly
     mutate(month = month + months(rep(c(0:2), times = nrow(brown_coal_mc))))
 
 # Liquid Fuel

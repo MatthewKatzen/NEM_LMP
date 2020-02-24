@@ -19,7 +19,7 @@ monthly_mc <- fread("D:/NEM_LMP/Output/MC/gen_monthly_mc.csv")%>%
 gas_mc <- fread("D:/NEM_LMP/Output/MC/gas_mc.csv") %>% select(duid, date, mc) %>% 
     mutate(date = as.Date(date))
 
-for (year in 2017:2019){
+for (year in 2013:2019){
     for (j in 1:12){
         location <- paste0("D:/NEM_LMP/Data/Cleaned/INITIALMW/",year,"/Step 4 - Mutated/")#location of step 4
         files <- paste0(location, list.files(location))
