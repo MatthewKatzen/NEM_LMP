@@ -12,20 +12,20 @@ library(readxl)
 library(writexl)
 Sys.setenv(TZ='UTC')
 
-full_mc <- fread("D:/NEM_LMP/Output/MC/full_mc.csv")
+full_vom <- fread("D:/NEM_LMP/Output/MC/full_mc_vom.csv")
 
 #TO
-full_mc %>% group_by(year, fuel_type) %>% summary_table_6() %>% 
+full_vom %>% group_by(year, fuel_type) %>% summary_table_7() %>% 
     ggplot(aes(x = year, y = TO, colour = fuel_type)) +
         geom_line(size = 2) +
     ggsave("D:/NEM_LMP/Output/MC/TO_fueltype.png", width = 10)
 
-full_mc %>% group_by(year, fuel_type) %>% summary_table_6() %>% 
+full_vom %>% group_by(year, fuel_type) %>% summary_table_7() %>% 
     ggplot(aes(x = year, y = TObar, colour = fuel_type)) +
     geom_line(size = 2) +
     ggsave("D:/NEM_LMP/Output/MC/TObar_fueltype.png", width = 10)
 
-full_mc %>% group_by(year, fuel_type) %>% summary_table_6() %>% 
+full_vom %>% group_by(year, fuel_type) %>% summary_table_7() %>% 
     ggplot(aes(x = year, y = TOmc, colour = fuel_type)) +
     geom_line(size = 2) +
     ggsave("D:/NEM_LMP/Output/MC/TOmc_fueltype.png", width = 10)

@@ -21,7 +21,12 @@ generator_details <- fread("D:/NEM_LMP/Data/RAW/generator_details.csv") %>% clea
                               region == "New South Wales" ~ "NSW",
                               region == "Victoria" ~ "VIC",
                               region == "South Australia" ~ "SA",
-                              region == "Tasmania" ~ "TAS"))
+                              region == "Tasmania" ~ "TAS")) %>% 
+    filter(!(duid %in% c("GERMCRK", "MBAHNTH", "CALL_A_4"))) #non-schedueld
+
+#duid BARKIPS1 is too new and doesn't have a te rating yet, give it mean of others
+generator_details %>% filter(fuel_type == "Gas", thermal_efficiency > 0) %>% summarise(mean = mean(thermal_efficiency))
+generator_details[22, "thermal_efficiency"] <- 0.3114615
 
 #### Black Coal
 #### 
@@ -106,64 +111,58 @@ gas_mc <- gas_gens %>% .[rep(1:nrow(.), each=nrow(gas_data)),] %>%
 
 # Brown Coal
 # ESOO 2019/20 = $0.64 /GJ 
-gdp_data <- fread("D:/Thesis/Data/External/gdp_data.csv") %>% clean_names() %>% mutate(date = paste0("01/", date)) %>% 
-    mutate(change = (gdp/lag(gdp))) %>% 
-    mutate(base = NA)
-    
-for (i in 29:1){
-    if (i==29){
-        gdp_data$base <- 1
+gdp_data <- fread("D:/Thesis/Data/External/oecd_gdp.csv") %>% clean_names() %>% as.data.frame()
+
+for (i in 28:1){
+    if (i %in% c(27,28)){
+        gdp_data$base <- 1 #assume no change in q4 2019
     }else{
-        gdp_data$base[i] <- gdp_data$base[i+1]/gdp_data$change[i+1]
+        gdp_data$base[i] <- gdp_data$base[i+1]/(1+gdp_data$change[i]/100)
     }
 }
 
-brown_coal_data <- gdp_data %>% select(date, base) %>% 
-    mutate(brown_coal_price = 0.64 * base) %>% 
-    mutate(date = dmy(date))
+
+brown_coal_data <- gdp_data %>% select(quarter, base) %>% 
+    mutate(brown_coal_price = 0.64 * base)
 
 brown_coal_gens <- generator_details %>% filter(fuel_type == "Brown Coal")
 
 brown_coal_mc <- brown_coal_gens %>% .[rep(1:nrow(.), each=nrow(brown_coal_data)),] %>% 
-    mutate(month = brown_coal_data[rep(1:nrow(brown_coal_data),
+    mutate(quarter = brown_coal_data[rep(1:nrow(brown_coal_data),
                                  nrow(brown_coal_gens)),
-                             "date"],
+                             "quarter"],
            brown_coal_price = brown_coal_data[rep(1:nrow(brown_coal_data),
                                       nrow(brown_coal_gens)),
                                   "brown_coal_price"]) %>% 
     mutate(mc =  brown_coal_price * 3.6 * (1/thermal_efficiency)) 
 
-brown_coal_mc_2 <- brown_coal_mc %>% .[rep((1:nrow(brown_coal_mc)), each = 3),] %>% #convert quarterly to monthly
-    mutate(month = month + months(rep(c(0:2), times = nrow(brown_coal_mc))))
 
 # Liquid Fuel
 #ESOO 19/20 = $37.71 /GJ 
 
-liquid_fuel_data <- gdp_data %>% select(date, base) %>% 
-    mutate(liquid_fuel_price = 37.71 * base) %>% 
-    mutate(date = dmy(date))
+liquid_fuel_data <- gdp_data %>% select(quarter, base) %>% 
+    mutate(liquid_fuel_price = 37.71 * base) 
 
 liquid_fuel_gens <- generator_details %>% filter(fuel_type == "Liquid Fuel") %>% 
     filter(thermal_efficiency != 0) #all te=0 are not in dispatch dataset
 
 liquid_fuel_mc <- liquid_fuel_gens %>% .[rep(1:nrow(.), each=nrow(liquid_fuel_data)),] %>% 
-    mutate(month = liquid_fuel_data[rep(1:nrow(liquid_fuel_data),
+    mutate(quarter = liquid_fuel_data[rep(1:nrow(liquid_fuel_data),
                                        nrow(liquid_fuel_gens)),
-                                   "date"],
+                                   "quarter"],
            liquid_fuel_price = liquid_fuel_data[rep(1:nrow(liquid_fuel_data),
                                                   nrow(liquid_fuel_gens)),
                                               "liquid_fuel_price"]) %>% 
     mutate(mc =  liquid_fuel_price * 3.6 * (1/thermal_efficiency))
 
-liquid_fuel_mc_2 <- liquid_fuel_mc %>% .[rep((1:nrow(liquid_fuel_mc)), each = 3),] %>% 
-    mutate(month = month + months(rep(c(0:2), times = nrow(liquid_fuel_mc))))
+
 
 #merge
 
-monthly_mc <- list(black_coal_mc %>% select(duid, month, mc), 
-                   liquid_fuel_mc_2 %>% select(duid, month, mc), 
-                   brown_coal_mc_2%>% select(duid, month, mc)) %>% rbindlist()
 
-fwrite(monthly_mc, "D:/NEM_LMP/Output/MC/gen_monthly_mc.csv")
+
 fwrite(gas_mc, "D:/NEM_LMP/Output/MC/gas_mc.csv")
+fwrite(black_coal_mc, "D:/NEM_LMP/Output/MC/black_coal_mc.csv")
+fwrite(liquid_fuel_mc, "D:/NEM_LMP/Output/MC/liquid_fuel_mc.csv")
+fwrite(brown_coal_mc, "D:/NEM_LMP/Output/MC/brown_coal_mc.csv")
 

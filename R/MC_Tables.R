@@ -12,7 +12,7 @@ library(readxl)
 library(writexl)
 Sys.setenv(TZ='UTC')
 
-summary_table_6 <- function(df){
+summary_table_7 <- function(df){
     df %>% 
         summarise(Q = sum(Q),
                   QC = sum(QC),
@@ -45,16 +45,16 @@ summary_table_6 <- function(df){
         )
 }
 
-full_mc <- fread("D:/NEM_LMP/Output/MC/full_mc.csv")
+full_vom <- fread("D:/NEM_LMP/Output/MC/full_mc_vom.csv")
 
 full_mc %>%  
     group_by(year, fuel_type) %>% 
-    summary_table_6() %>% 
-    fwrite("D:/NEM_LMP/Output/MC/year_fuel_type.csv")
+    summary_table_7() %>% 
+    fwrite("D:/NEM_LMP/Output/MC/year_fuel_type_vom.csv")
 
 full_mc %>%  
     group_by(year, region) %>% 
-    summary_table_6() %>% 
-    fwrite("D:/NEM_LMP/Output/MC/year_region.csv")
+    summary_table_7() %>% 
+    fwrite("D:/NEM_LMP/Output/MC/year_region_vom.csv")
 
 
