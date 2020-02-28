@@ -57,4 +57,3 @@ full_mc %>%
     summary_table_7() %>% 
     fwrite("D:/NEM_LMP/Output/MC/year_region_vom.csv")
 
-

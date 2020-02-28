@@ -10,6 +10,8 @@ dispatch_data <- files %>% map(~fread(.x) %>%
     rbindlist()
 
 fwrite(dispatch_data, "D:/NEM_LMP/Data/Cleaned/dispatch_fuel_region_settlementdate.csv")
+dispatch_data <- fread("D:/NEM_LMP/Data/Cleaned/dispatch_fuel_region_settlementdate.csv") %>% 
+    mutate(settlementdate = ymd_hms(settlementdate))
 
 #When does SS start binding?
 
@@ -136,3 +138,31 @@ temp2 %>%
     xlab("MW") +
     ggtitle("ALL SA Wind and Solar Yearly")+
     ggsave("Output/CDF/ALL SA Wind and Solar Yearly.png", width = 7)
+
+# LMP of a wind farm
+
+year <- c(2013:2019)
+location <- paste0("D:/NEM_LMP/Data/Cleaned/INITIALMW/",year,"/Step 4 - Mutated/")#location of step 4
+files <- location %>% map(~paste0(.x, list.files(.x))) %>% unlist()
+
+sa_wind_data <- files %>% map(~fread(.x) %>% filter(fuel_type == "Wind", region == "SA")) %>% rbindlist() %>% 
+    mutate(settlementdate = ymd_hms(settlementdate))
+sa_wind_data <- sa_wind_data %>% mutate(settlementdate = ymd_hms(settlementdate))
+
+fwrite(sa_wind_data, "D:/NEM_LMP/Data/Cleaned/SA_wind_data.csv")
+
+sa_wind_data %>% filter(duid == "BLUFF1") %>% 
+    mutate(year = (settlementdate %>% year() %>% as.factor())) %>% 
+    filter(settlementdate != "2020-01-01 00:00:00") %>% 
+    ggplot(aes(x = lmp_censored, group=year, colour = year)) + stat_ecdf() +
+    scale_x_continuous(limits = c(-1100, 500)) +
+    ggtitle("LMP_Censored CDFs BLUFF1") +
+    ggsave("D:/NEM_LMP/Output/CDF/LMP_BLUFF1.png", width = 7)
+
+sa_wind_data %>% 
+    mutate(year = (settlementdate %>% year() %>% as.factor())) %>% 
+    filter(settlementdate != "2020-01-01 00:00:00") %>% 
+    ggplot(aes(x = lmp_censored, group=year, colour = year)) + stat_ecdf() +
+    scale_x_continuous(limits = c(-1100, 500)) +
+    ggtitle("LMP_Censored CDFs all SA Wind") +
+    ggsave("D:/NEM_LMP/Output/CDF/LMP_SA_WIND.png", width = 7)

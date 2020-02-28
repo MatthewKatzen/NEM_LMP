@@ -30,3 +30,11 @@ full_vom %>% group_by(year, fuel_type) %>% summary_table_7() %>%
     geom_line(size = 2) +
     ggsave("D:/NEM_LMP/Output/MC/TOmc_fueltype.png", width = 10)
 
+#TM
+full_vom %>% group_by(year, fuel_type) %>% summary_table_7() %>% 
+    ggplot(aes(x = year, y = TM, fill = fuel_type)) +
+    geom_area()
+
+full_vom %>% group_by(year, fuel_type) %>% summary_table_7() %>% 
+    ggplot(aes(x = year, y = TMmc, fill = fuel_type)) +
+    geom_area()
