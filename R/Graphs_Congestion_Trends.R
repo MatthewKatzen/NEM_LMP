@@ -1,7 +1,8 @@
 #Congestion Trends
 
 # Load packages
-library(tidyverse)
+
+library(tidyverse, tidyr)
 library(tidyr)
 library(lubridate)
 library(data.table)
@@ -13,7 +14,7 @@ Sys.setenv(TZ='UTC')
 #load data
 LPA <- fread("D:/NEM_LMP/Data/Raw/dispatch_local_price_24-01-2020.csv") %>% clean_names() %>% 
     mutate(settlementdate = ymd_hms(settlementdate)) %>% 
-    filter(year(settlementdate) %in% c(2013:2019)) %>% 
+    filter(year(settlementdate) %in% c(2019)) %>% 
     select(-locally_constrained)
 
 generator_details_raw <- fread("D:/NEM_LMP/Data/RAW/generator_details.csv") %>% 
@@ -96,7 +97,7 @@ LPA_details %>% filter(year(settlementdate)==2019) %>%
     ggsave("D:/NEM_LMP/Output/Congestion_Trends/DuidConstrained2019.png", width = 8)
 
 
-#why s it different to 
+#why s it different to paper?
 LPA_details %>% filter(year(settlementdate)==2019) %>% 
     group_by(duid, fuel_type) %>% 
     summarise(prop = n()/(12*24*365)) %>% arrange(-prop)
@@ -112,7 +113,7 @@ dispatch_data <- files[73:84] %>% map(~fread(.x) %>%
     rbindlist() %>% 
     mutate(settlementdate = ymd_hms(settlementdate))
 
-LPA_Dispatch <- LPA_details %>% right_join(dispatch_data, by = c("settlementdate", "duid")) %>% 
+LPA_Dispatch <- LPA %>% right_join(dispatch_data, by = c("settlementdate", "duid")) %>% 
     mutate(local_price_adjustment = ifelse(is.na(local_price_adjustment),
                                                  0,
                                                  local_price_adjustment))
@@ -125,7 +126,12 @@ LPA_Dispatch %>% group_by(duid, fuel_type.y) %>%
     ggsave("D:/NEM_LMP/Output/Congestion_Trends/DuidConstrainedWhenDispatched2019.png", width = 8)
 
 
-LPA_Dispatch %>% group_by(duid, fuel_type.y) %>% 
-    summarise(prop = sum(local_price_adjustment!=0)/n()) %>% arrange(-prop) %>% 
-    left_join(generator_details %>% select(duid, region, fuel_type), by = "duid") %>% 
-    select(duid, fuel_type, region, prop)#table
+LPA_Dispatch %>% group_by(duid, fuel_type) %>% 
+    summarise(prop = sum(local_price_adjustment!=0 & dispatchmwh>0.01)/(12*24*365)) %>% arrange(-prop) %>% 
+    select(duid, fuel_type, prop)#table
+
+
+LPA_Dispatch %>% group_by(duid, fuel_type) %>% 
+    summarise(prop = sum(local_price_adjustment!=0 & dispatchmwh>0.01)/(12*24*365)) %>% 
+    ggplot(aes(x = prop, fill = fuel_type))+
+    geom_histogram() #thesis reproduction

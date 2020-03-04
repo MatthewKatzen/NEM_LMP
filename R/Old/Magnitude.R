@@ -154,7 +154,7 @@ congested_fuel %>% filter(year(year) < 2019) %>% filter(!(fuel_type %in% c("Batt
     ggsave("Output/Charts/Congested_fuel.png", width = 10)
 
 #distribution of congestion
-congested_duid_2 <-  mpa %>% filter(year(settlementdate) == 2018, dispatchmwh > 0) %>% #removes all duids not congested
+congested_duid_2 <-  mpa %>% filter(year(settlementdate) == 2018, dispatchmwh > 0) %>% #removes all duids not dispatched
     select(settlementdate, station, fuel_type) %>%
     unique() %>% 
     group_by(station) %>% summarise(count = n(), fuel_type = fuel_type[1]) %>% 
