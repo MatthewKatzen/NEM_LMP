@@ -27,10 +27,9 @@ generator_details <- fread("D:/NEM_LMP/Data/generator_details_cleaned")
 
 q_cs_duids <- c("BARCALDN", "LILYSF1", "BARRON-1", "BARRON-2", "CALL_B_1", "CALL_B_2", "CPP_3", "CPP_4", "DAYDSF1", "HAYMSF1", "CLARESF1", "CSPVPS1", "YABULU2", "GSTONE1", "GSTONE2", "GSTONE3", "GSTONE4", "GSTONE5", "GSTONE6", "HAUGHT11", "KAREEYA1", "KAREEYA2", "KAREEYA3", "KAREEYA4", "EMERASF1", "QLIS2M", "CLERMSF1", "MACKAYGT", "RUGBYR1", "MSTUART1", "MSTUART2", "MSTUART3", "KSP1", "RRSF1", "QROW1K", "QROW2K", "HAMISF1", "WHITSF1", "STAN-1", "STAN-2", "STAN-3", "STAN-4", "YABULU","SMCSF1", "MEWF1")
 
-generator_details %>% filter(duid %in% q_cs_duids)
+generator_details %>% filter(duid %in% q_cs_duids) %>% 
+    select(fuel_type) %>% table()
 
-generator_details %>% filter(region == "QLD",
-                             !(duid %in% q_cs_duids))
 
 
 

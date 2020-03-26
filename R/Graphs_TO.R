@@ -38,3 +38,17 @@ full_vom %>% group_by(year, fuel_type) %>% summary_table_7() %>%
 full_vom %>% group_by(year, fuel_type) %>% summary_table_7() %>% 
     ggplot(aes(x = year, y = TMmc, fill = fuel_type)) +
     geom_area()
+
+#TO by fuel x state
+full_vom %>% group_by(year, fuel_type, region) %>% summary_table_7() %>% 
+    ggplot(aes(x = year, y = TO, colour = fuel_type)) +
+    geom_line(size = 2) +
+    facet_wrap(~region) +
+    ggsave("D:/NEM_LMP/Output/MC/TO_fueltype_region.png", width = 15, height = 8)
+
+#TOmc by fuel x state
+full_vom %>% group_by(year, fuel_type, region) %>% summary_table_7() %>% 
+    ggplot(aes(x = year, y = TOmc, colour = fuel_type)) +
+    geom_line(size = 2) +
+    facet_wrap(~region) +
+    ggsave("D:/NEM_LMP/Output/MC/TOmc_fueltype_region.png", width = 15, height = 8)

@@ -47,7 +47,7 @@ summary_table_7 <- function(df){
 
 full_vom <- fread("D:/NEM_LMP/Output/MC/full_mc_vom.csv")
 
-full_mc %>%  
+table_year_fueltype <- full_vom %>%  
     group_by(year, fuel_type) %>% 
     summary_table_7() %>% 
     fwrite("D:/NEM_LMP/Output/MC/year_fuel_type_vom.csv")
@@ -57,3 +57,17 @@ full_mc %>%
     summary_table_7() %>% 
     fwrite("D:/NEM_LMP/Output/MC/year_region_vom.csv")
 
+#2019
+table_yearly <- full_vom %>% 
+    group_by(year) %>% 
+    summary_table_7()
+
+table_2019_fueltype <- full_vom %>% filter(year == 2019) %>% 
+    group_by(fuel_type) %>% 
+    summary_table_7()
+
+table_2019_fueltype_state <- full_vom %>% filter(year == 2019) %>% 
+    group_by(fuel_type, region) %>% 
+    summary_table_7()
+
+table_2019_fueltype_state %>% arrange(-TO)
