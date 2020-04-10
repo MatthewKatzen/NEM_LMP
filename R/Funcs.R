@@ -45,8 +45,7 @@ rhs.fun <- function(yearmonth){
     month <- substr(yearmonth, 5, 6)
     url <- 0 #initialise
     #check if already downloaded
-    csv.name <- paste0(external.data.location,"/PUBLIC_DVD_DISPATCHCONSTRAINT_", yearmonth, 
-                       "010000.CSV")
+    csv.name <- paste0(external.data.location,"/PUBLIC_DVD_DISPATCHCONSTRAINT_", yearmonth, "010000.CSV")
     if(!file.exists(csv.name)){
         url <- paste0("http://nemweb.com.au/Data_Archive/Wholesale_Electricity/MMSDM/", year,"/MMSDM_",
                       year, "_",month, 
@@ -57,13 +56,75 @@ rhs.fun <- function(yearmonth){
         unzip(temp, paste0("PUBLIC_DVD_DISPATCHCONSTRAINT_", yearmonth, "010000.CSV"), 
               exdir = external.data.location) #unzip[ zipped file and save csv to external storage
     }
-    #Clean RHS and MV
-    rhs <- read.csv(csv.name, sep=",", skip=1, stringsAsFactors = FALSE)
-    rhs <- rhs %>% filter(MARGINALVALUE != 0) %>% #remove unconstrained
-        filter(substr(CONSTRAINTID,1,1) %in% c('Q','N','V','S','T','I')) %>%  #no fcas and other weird types
-        mutate(SETTLEMENTDATE = ymd_hms(SETTLEMENTDATE))
-    if(url != 0){
-        unlink(temp) #delete zip
-    }    
-    return(rhs)#save locally
+}
+
+rhs.mmc.fun <- function(yearmonth){
+    external.data.location <- "D:/NEM_LMP/Data/Raw/MCC_RHS" 
+    year <- substr(yearmonth, 1, 4)
+    month <- substr(yearmonth, 5, 6)
+    #check if already downloaded
+    csv.name <- paste0(external.data.location,"/PUBLIC_DVD_MCC_CONSTRAINTSOLUTION_", yearmonth, "010000.CSV")
+    if(!file.exists(csv.name)){
+        url <- paste0("http://nemweb.com.au/Data_Archive/Wholesale_Electricity/MMSDM/", year,"/MMSDM_",
+                      year, "_",month, 
+                      "/MMSDM_Historical_Data_SQLLoader/DATA/PUBLIC_DVD_MCC_CONSTRAINTSOLUTION_",
+                      yearmonth, "010000.zip")
+        temp <- tempfile()
+        download.file(url, temp, mode="wb", method = "curl") #download zip
+        unzip(temp, paste0("PUBLIC_DVD_MCC_CONSTRAINTSOLUTION_", yearmonth, "010000.CSV"), 
+              exdir = external.data.location) #unzip[ zipped file and save csv to external storage
+        unlink(temp)
+    }
+}
+
+scada.fun <- function(yearmonth){
+    external.data.location <- "D:/NEM_LMP/Data/Raw/SCADA" 
+    year <- substr(yearmonth, 1, 4)
+    month <- substr(yearmonth, 5, 6)
+    #check if already downloaded
+    csv.name <- paste0(external.data.location,"/PUBLIC_DVD_DISPATCH_UNIT_SCADA_", yearmonth, "010000.CSV")
+    if(!file.exists(csv.name)){
+        url <- paste0("http://nemweb.com.au/Data_Archive/Wholesale_Electricity/MMSDM/", year,"/MMSDM_",
+                      year, "_",month, 
+                      "/MMSDM_Historical_Data_SQLLoader/DATA/PUBLIC_DVD_DISPATCH_UNIT_SCADA_",
+                      yearmonth, "010000.zip")
+        temp <- tempfile()
+        download.file(url, temp, mode="wb", method = "curl") #download zip
+        unzip(temp, paste0("PUBLIC_DVD_DISPATCH_UNIT_SCADA_", yearmonth, "010000.CSV"), 
+              exdir = external.data.location) #unzip[ zipped file and save csv to external storage
+        unlink(temp)
+    }
+}
+
+summary_table_7 <- function(df){
+    df %>% 
+        summarise(Q = sum(Q),
+                  QC = sum(QC),
+                  
+                  TM = sum(TM),
+                  TMbar = sum(TMbar),
+                  TMmc = sum(TMmc),
+                  
+                  TO = sum(TO),
+                  TObar = sum(TObar),
+                  TOmc = sum(TOmc),
+                  
+                  AM = TM*1000000/abs(QC),
+                  AMbar = TMbar*1000000/abs(QC),
+                  AMmc = TMmc*1000000/abs(QC),
+                  
+                  AO = TO*1000000/abs(QC),
+                  AObar = TObar*1000000/abs(QC),
+                  AOmc = TOmc*1000000/abs(QC),
+                  
+                  RevRRP = sum(RevRRP),
+                  
+                  PercTM = TM/RevRRP*100,
+                  PercTMbar = TMbar/RevRRP*100,
+                  PercTMmcr = TMmc/RevRRP*100,
+                  
+                  PercTO = TO/RevRRP*100,
+                  PercTObar = TObar/RevRRP*100,
+                  PercTOmc = TOmc/RevRRP*100
+        )
 }

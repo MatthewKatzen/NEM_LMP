@@ -37,10 +37,11 @@ generator_details %>% filter(duid %in% q_cs_duids) %>%
 # QLD TO by hour of day
 
 location <- "D:/NEM_LMP/Data/Cleaned/MC/"
-files <- paste0(location, list.files(location))
-qld_data <- files %>% map(~fread(.x) %>% filter(region == "QLD") %>% 
-                                       select(settlementdate, duid, fuel_type, dispatchmwh, local_price_adjustment,
-                                              rev_rrp_30, rev_lmp_censored, rev_lmp_mc)) %>% 
+files <- paste0("D:/NEM_LMP/Data/Cleaned/MC/", list.files("D:/NEM_LMP/Data/Cleaned/MC/"))
+qld_data <- paste0("D:/NEM_LMP/Data/Cleaned/MC/", list.files("D:/NEM_LMP/Data/Cleaned/MC/")) %>% 
+    map(~fread(.x) %>% filter(region == "QLD") %>% 
+            select(settlementdate, duid, fuel_type, dispatchmwh, local_price_adjustment,
+                   rev_rrp_30, rev_lmp_censored, rev_lmp_mc)) %>% 
     rbindlist() %>% 
     mutate(settlementdate = ymd_hms(settlementdate)) %>% 
     mutate(TO = ifelse(local_price_adjustment!=0,
