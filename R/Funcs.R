@@ -97,9 +97,9 @@ scada.fun <- function(yearmonth){
 }
 
 summary_table_7 <- function(df){
-    df %>% 
-        summarise(Q = sum(Q),
-                  QC = sum(QC),
+    output <- df %>% 
+        summarise(Q = sum(Q)/1000,
+                  QC = sum(QC)/1000,
                   
                   TM = sum(TM),
                   TMbar = sum(TMbar),
@@ -109,22 +109,29 @@ summary_table_7 <- function(df){
                   TObar = sum(TObar),
                   TOmc = sum(TOmc),
                   
-                  AM = TM*1000000/abs(QC),
-                  AMbar = TMbar*1000000/abs(QC),
-                  AMmc = TMmc*1000000/abs(QC),
+                  AM = TM*1000/abs(QC),
+                  AMbar = TMbar*1000/abs(QC),
+                  AMmc = TMmc*1000/abs(QC),
                   
-                  AO = TO*1000000/abs(QC),
-                  AObar = TObar*1000000/abs(QC),
-                  AOmc = TOmc*1000000/abs(QC),
+                  AO = TO*1000/abs(QC),
+                  AObar = TObar*1000/abs(QC),
+                  AOmc = TOmc*1000/abs(QC),
                   
                   RevRRP = sum(RevRRP),
                   
                   PercTM = TM/RevRRP*100,
                   PercTMbar = TMbar/RevRRP*100,
-                  PercTMmcr = TMmc/RevRRP*100,
+                  PercTMmc = TMmc/RevRRP*100,
                   
                   PercTO = TO/RevRRP*100,
                   PercTObar = TObar/RevRRP*100,
                   PercTOmc = TOmc/RevRRP*100
-        )
+        ) 
+    colsums <- output[,-1] %>% colSums() %>% t() %>% data.frame()
+    new_row <- c(NA, colsums$Q, colsums$QC, colsums$TM, colsums$TMbar, colsums$TMmc, colsums$TO, colsums$TObar, colsums$TOmc,
+                 colsums$TM/colsums$QC, colsums$TMbar/colsums$QC, colsums$TMmc/colsums$QC, colsums$TO/colsums$QC, colsums$TObar/colsums$QC, colsums$TOmc/colsums$QC, 
+                 colsums$RevRRP, colsums$TM/colsums$RevRRP*100, colsums$TMbar/colsums$RevRRP*100, colsums$TMmc/colsums$RevRRP*100, colsums$TO/colsums$RevRRP*100, colsums$TObar/colsums$RevRRP*100, colsums$TOmc/colsums$RevRRP*100)
+    output <- rbind(output, new_row)
+    output[nrow(output), 1] <- "All"
+    return(output)
 }

@@ -78,25 +78,29 @@ sa_constraint_data %>%
 files <- paste0("D:/NEM_LMP/Data/Raw/SCADA/" ,list.files("D:/NEM_LMP/Data/Raw/SCADA"))
 gens <- generator_details %>% filter(region == "SA", fuel_type %in% c("Solar","Wind")) %>% .[["duid"]]
     
-sa_solar_wind <- files %>% map(~fread(.x) %>% clean_names() %>%
+sa_solar_wind_scada <- files %>% map(~fread(.x) %>% clean_names() %>%
                           filter(duid %in% gens)) %>% 
     rbindlist() %>% 
     left_join(generator_details, by = "duid")
 
-fwrite(sa_solar_wind, "D:/NEM_LMP/Data/Cleaned/Misc/sa_wind_solar_scada.csv")
+fwrite(sa_solar_wind_scada, "D:/NEM_LMP/Data/Cleaned/Misc/sa_wind_solar_scada.csv")
+sa_solar_wind_scada <- fread("D:/NEM_LMP/Data/Cleaned/Misc/sa_wind_solar_scada.csv")
 
-temp2 <- temp %>% group_by(settlementdate) %>% summarise(total_initialmw = sum(scadavalue)) %>% 
+
+temp2 <- sa_solar_wind_scada %>% group_by(settlementdate) %>% summarise(total_initialmw = sum(scadavalue)) %>% 
     mutate(settlementdate = ymd_hms(settlementdate))
 
 #when did solar start?
-temp %>% group_by(duid, fuel_type) %>% 
+sa_solar_wind_scada %>% group_by(duid, fuel_type) %>% 
     summarise(min = min(settlementdate)) %>% as.data.frame()
 
 #how much did solar produce?
-temp %>% group_by(year(settlementdate), fuel_type) %>% summarise(sum = sum(scadavalue)/12)
+sa_solar_wind_scada %>% group_by(year(settlementdate), fuel_type) %>% summarise(sum = sum(scadavalue)/12)
 
 #make cdf
-temp3 <- temp2 %>% 
+sa_solar_wind_scada_aggregate <- sa_solar_wind_scada %>% 
+    group_by(settlementdate) %>% summarise(total_initialmw = sum(scadavalue)) %>% 
+    mutate(settlementdate = ymd_hms(settlementdate)) %>% #get 5 min totals
     filter(settlementdate %within% interval(ymd_hms("2017-01-01 00:05:00 UTC"), ymd_hms("2020-01-01 00:00:00 UTC"))) %>% 
     mutate(constraint_group = case_when(
         settlementdate %within% interval(ymd_hms("2017-08-07 00:05:00 UTC"), ymd_hms("2017-12-11 00:00:00 UTC")) ~ 
@@ -107,20 +111,24 @@ temp3 <- temp2 %>%
             "5/12/2018 - 31/12/2019",
         TRUE ~ "1/1/2017 - 6/8/2017"))
 
-temp3$constraint_group <- factor(temp3$constraint_group, 
+sa_solar_wind_scada_aggregate$constraint_group <- factor(sa_solar_wind_scada_aggregate$constraint_group, 
                                  levels = c("1/1/2017 - 6/8/2017", "7/8/2017 - 10/12/2017", "11/12/2017 - 4/12/2018", 
                                             "5/12/2018 - 31/12/2019"),
                                  labels = c("1/1/2017 - 6/8/2017", "7/8/2017 - 10/12/2017", "11/12/2017 - 4/12/2018",
                                             "5/12/2018 - 31/12/2019"))
 
-temp3 %>% 
-    ggplot(aes(x = total_initialmw, group = constraint_group, colour = constraint_group)) + stat_ecdf() +
+#CDF
+sa_solar_wind_scada_aggregate %>% 
+    ggplot(aes(x = total_initialmw, group = constraint_group, colour = constraint_group)) + 
+    stat_ecdf(size = 2) +
     geom_vline(xintercept = 1200, linetype = "dashed")+
     geom_vline(xintercept = 1295, linetype = "dashed")+
     guides(colour = guide_legend(title="Constraint Group")) +
-    ylab("CDF") +
-    xlab("MW")+
-    ggsave("D:/NEM_LMP/Output/Final/ALL SA Wind and Solar.png", width = 10)
+    labs(x = "MW", y = "Cumulative Density") +
+    ggsave("D:/NEM_LMP/Output/Final/SA_Wind_Solar_Scada_CDF.png", width = 10)
 
-
-
+#PDF
+sa_solar_wind_scada_aggregate %>% 
+    ggplot(aes(x = total_initialmw))+
+    geom_histogram() +
+    facet_wrap(~constraint_group)

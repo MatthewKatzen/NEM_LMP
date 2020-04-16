@@ -70,6 +70,7 @@ sa_solar_wind_full <- files %>% map(~fread(.x) %>% clean_names() %>%
     left_join(generator_details, by = "duid")
 
 fwrite(sa_solar_wind_full, "D:/NEM_LMP/Data/Cleaned/Misc/sa_solar_wind_full.csv")
+sa_solar_wind_full <- fread("D:/NEM_LMP/Data/Cleaned/Misc/sa_solar_wind_full.csv")
 
 vintage <- sa_solar_wind_full %>% group_by(duid) %>% summarise(start = min(year(settlementdate)))
 
@@ -81,7 +82,7 @@ full_vom %>% filter(fuel_type == "Wind", region == "SA") %>%
     ggplot(aes(x = year, y = AO, group = duid, colour = start))+
     geom_line(size = 1.2)+
     scale_color_gradient(low = "blue", high = "red") +
-    labs(x = "Year", y = "$/MWh", colour = "Comission Year")+
+    labs(x = "Year", y = "$/MWh", colour = "Commission Year")+
     ggsave("D:/NEM_LMP/Output/Final/SA_wind_AO.png", width = 10)
 
 full_vom %>% filter(fuel_type == "Wind", region == "SA", year %in% c(2009,2014)) %>% 
