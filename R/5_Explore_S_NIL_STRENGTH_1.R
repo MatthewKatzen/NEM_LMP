@@ -67,7 +67,7 @@ sa_constraint_data %>%
     group_by(constraint_type, year = year(settlementdate)) %>% summarise(sum = n()) %>% 
     ggplot(aes(x = year, y = sum, colour = constraint_type)) +
     geom_line(size = 2)+
-    labs(x = "Year", y = "Number of 5 min intervals", colour = "Constraint Type") +
+    labs(x = "Year", y = "# 5 min intervals", colour = "Constraint Type") +
     ggsave("D:/NEM_LMP/Output/Final/SA_constraints_freq.png", width = 10)
 
 

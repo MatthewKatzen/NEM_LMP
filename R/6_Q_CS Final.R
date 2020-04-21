@@ -74,8 +74,7 @@ qld_constraint_data %>% filter(substr(constraintid,1,4) == "Q_CS") %>%
     ggplot(aes(x = time, y = n, colour = Year)) +
     geom_line(size = 2)+
     scale_x_datetime(date_labels = "%H:%M") +
-    labs(x = "Time", y = "Number of times constraint binds") +
-    guides(colour = guide_legend(title = "year"))+
+    labs(x = "Time", y = "Number of times constraint binds", colour = "Year") +
     ggsave("D:/NEM_LMP/Output/Final/Q_CS_time_of_day_year.png", width = 10)
 
 #when did Q_CS start?

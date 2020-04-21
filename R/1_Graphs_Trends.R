@@ -14,7 +14,7 @@ Sys.setenv(TZ='UTC')
 #### section 4.1
 #########################
 
-generator_details <- fread("D:/NEM_LMP/Data/generator_details_cleaned")
+generator_details <- fread("D:/NEM_LMP/Data/Raw/generator_details_cleaned.csv")
 LPA <- fread("D:/NEM_LMP/Data/Raw/dispatch_local_price_24-01-2020.csv") %>% clean_names() %>% 
     mutate(settlementdate = ymd_hms(settlementdate)) %>% 
     filter(year(settlementdate) %in% c(2013:2019)) %>% 
@@ -64,7 +64,7 @@ LPA %>% inner_join(dispatch_2019 %>% filter(year(settlementdate)==2019),
     geom_histogram() +
     scale_y_continuous(limits = c(0,75)) +
     scale_x_continuous(limits = c(-.01,0.35)) +
-    labs(title = "Generator-level frequency of congestion in 2019") +
+    labs(x = "Proportion", y = "# Generators", fill = "Fuel Type") +
     ggsave("D:/NEM_LMP/Output/Final/Duid_Constrained_Frequency_2019.png", width = 8)
 
 LPA %>% inner_join(dispatch_2019 %>% filter(year(settlementdate)==2019), 
@@ -72,5 +72,4 @@ LPA %>% inner_join(dispatch_2019 %>% filter(year(settlementdate)==2019),
     group_by(duid, fuel_type.x) %>% 
     summarise(prop = n()/(12*24*365)) %>% 
     arrange(-prop) %>% .[1:10,] #top 7/10 are wind
-
 
